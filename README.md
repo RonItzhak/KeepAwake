@@ -31,7 +31,7 @@ load.
 
 ## Install
 
-Download `KeepAwake-0.1.2.pkg` from
+Download `KeepAwake-0.1.3.pkg` from
 [Releases](https://github.com/RonItzhak/KeepAwake/releases) and double-click
 it. That installs to `/Applications`, allows admin users to run `pmset`
 without a password, and launches the menu-bar extra.
@@ -39,15 +39,27 @@ without a password, and launches the menu-bar extra.
 The package is ad-hoc signed. If Gatekeeper blocks it: right-click the pkg,
 choose Open, then Open anyway.
 
+## Updates
+
+Install the latest `.pkg` over the existing copy. The installer quits a
+running Keep Awake, replaces `/Applications/KeepAwake.app`, and launches
+the new build. Keep-awake on/off is left as it was.
+
+Use **Check for Updates…** in the menu or control window to compare with
+GitHub Releases.
+
 ## Build
 
 Requires macOS 14+ and a Swift toolchain (Xcode).
 
 ```sh
-./build.sh          # install to ~/Applications/KeepAwake.app
-./build.sh --launch # install and launch
-./make-release.sh   # build a pkg under dist/
+make            # install to ~/Applications/KeepAwake.app
+make launch     # install and launch
+make pkg        # build a pkg under dist/
+make clean
 ```
+
+The same steps as `./build.sh`, `./build.sh --launch`, and `./make-release.sh`.
 
 ## Debug log
 

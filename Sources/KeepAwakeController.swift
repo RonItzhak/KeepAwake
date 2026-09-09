@@ -100,6 +100,14 @@ final class KeepAwakeController: NSObject, NSWindowDelegate {
   }
 
   @objc
+  private func checkForUpdates(_ sender: Any?) {
+    showControlWindow()
+    Task { @MainActor in
+      await promptForUpdate()
+    }
+  }
+
+  @objc
   private func quit(_ sender: Any?) {
     NSApp.terminate(nil)
   }
@@ -225,6 +233,11 @@ final class KeepAwakeController: NSObject, NSWindowDelegate {
       action: #selector(openLog(_:)),
       keyEquivalent: ""
     ))
+    menu.addItem(NSMenuItem(
+      title: "Check for Updates…",
+      action: #selector(checkForUpdates(_:)),
+      keyEquivalent: ""
+    ))
     menu.addItem(.separator())
     menu.addItem(NSMenuItem(title: "Quit Keep Awake", action: #selector(quit(_:)), keyEquivalent: "q"))
 
@@ -276,11 +289,19 @@ final class KeepAwakeController: NSObject, NSWindowDelegate {
     log.bezelStyle = .rounded
     log.translatesAutoresizingMaskIntoConstraints = false
 
+    let updates = NSButton(
+      title: "Check for Updates…",
+      target: self,
+      action: #selector(checkForUpdates(_:))
+    )
+    updates.bezelStyle = .rounded
+    updates.translatesAutoresizingMaskIntoConstraints = false
+
     let quit = NSButton(title: "Quit Keep Awake", target: self, action: #selector(quit(_:)))
     quit.bezelStyle = .rounded
     quit.translatesAutoresizingMaskIntoConstraints = false
 
-    let stack = NSStackView(views: [iconView, status, toggle, login, log, quit])
+    let stack = NSStackView(views: [iconView, status, toggle, login, log, updates, quit])
     stack.orientation = .vertical
     stack.alignment = .centerX
     stack.spacing = 12
@@ -314,4 +335,66 @@ final class KeepAwakeController: NSObject, NSWindowDelegate {
     alert.addButton(withTitle: "OK")
     alert.runModal()
   }
+
+  private func promptForUpdate() async {
+    let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
+    let page = URL(string: "https://github.com/RonItzhak/KeepAwake/releases/latest")!
+    KeepAwakeLog.info("checking for updates; current=\(current)")
+    do {
+      var request = URLRequest(
+        url: URL(string: "https://api.github.com/repos/RonItzhak/KeepAwake/releases/latest")!
+      )
+      request.setValue("KeepAwake/\(current)", forHTTPHeaderField: "User-Agent")
+      request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+      let (data, response) = try await URLSession.shared.data(for: request)
+      let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+      KeepAwakeLog.info("update check HTTP \(status)")
+      let latest = try JSONDecoder().decode(GitHubRelease.self, from: data)
+      let latestVersion = latest.tag_name.hasPrefix("v")
+        ? String(latest.tag_name.dropFirst())
+        : latest.tag_name
+      let alert = NSAlert()
+      if latestVersion.compare(current, options: .numeric) == .orderedDescending {
+        alert.messageText = "Keep Awake \(latestVersion) is available"
+        alert.informativeText = "You have \(current). Download the new pkg to replace this copy."
+        alert.addButton(withTitle: "Download")
+        alert.addButton(withTitle: "Later")
+        if await presentAlert(alert) == .alertFirstButtonReturn {
+          NSWorkspace.shared.open(URL(string: latest.html_url) ?? page)
+        }
+      } else {
+        alert.messageText = "You're up to date"
+        alert.informativeText = "Keep Awake \(current) is the latest release."
+        alert.addButton(withTitle: "OK")
+        _ = await presentAlert(alert)
+      }
+    } catch {
+      KeepAwakeLog.error("update check failed: \(error)")
+      let alert = NSAlert()
+      alert.messageText = "Could not check for updates"
+      alert.informativeText = "Open the GitHub releases page in your browser instead."
+      alert.addButton(withTitle: "Open Releases")
+      alert.addButton(withTitle: "Cancel")
+      if await presentAlert(alert) == .alertFirstButtonReturn {
+        NSWorkspace.shared.open(page)
+      }
+    }
+  }
+
+  private func presentAlert(_ alert: NSAlert) async -> NSApplication.ModalResponse {
+    if let window = controlWindow, window.isVisible {
+      return await alert.beginSheetModal(for: window)
+    }
+    NSApp.setActivationPolicy(.regular)
+    NSApp.activate()
+    return alert.runModal()
+  }
+}
+
+/// Latest GitHub release payload used by Check for Updates.
+private struct GitHubRelease: Decodable {
+  /// Tag such as `v0.1.2`.
+  let tag_name: String
+  /// Browser URL for that release. Used when the user chooses Download.
+  let html_url: String
 }

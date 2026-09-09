@@ -19,7 +19,7 @@ ditto --norsrc --noextattr --noqtn "$APP" "$PAYLOAD/KeepAwake.app"
 xattr -cr "$PAYLOAD"
 find "$PAYLOAD" \( -name '._*' -o -name '.DS_Store' \) -delete
 codesign --force --sign - "$PAYLOAD/KeepAwake.app" >/dev/null
-chmod 0755 "$SCRIPTS/postinstall"
+chmod 0755 "$SCRIPTS/preinstall" "$SCRIPTS/postinstall"
 
 pkgbuild \
   --root "$PAYLOAD" \

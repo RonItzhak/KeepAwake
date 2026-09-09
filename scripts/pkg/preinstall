@@ -1,0 +1,6 @@
+#!/bin/bash
+# Stop a running copy so the new payload can replace the live binary.
+/usr/bin/killall -TERM KeepAwake 2>/dev/null || true
+sleep 0.5
+/usr/bin/killall -KILL KeepAwake 2>/dev/null || true
+exit 0

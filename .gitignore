@@ -22,3 +22,6 @@ xcuserdata/
 # Build leftovers
 /tmp-KeepAwake
 *.o
+dist/
+*.pkg
+*.dmg

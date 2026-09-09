@@ -1,0 +1,4 @@
+#!/bin/bash
+# Launches Keep Awake after the pkg lands in /Applications.
+/usr/bin/open -a "/Applications/KeepAwake.app"
+exit 0

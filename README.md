@@ -28,6 +28,15 @@ dialog.
 Keep the Mac plugged in and give it airflow when the lid is closed under
 load.
 
+## Install
+
+Download `KeepAwake-0.1.pkg` from
+[Releases](https://github.com/RonItzhak/KeepAwake/releases) and double-click
+it. That installs to `/Applications` and launches the menu-bar extra.
+
+The package is ad-hoc signed. If Gatekeeper blocks it: right-click the pkg,
+choose Open, then Open anyway.
+
 ## Build
 
 Requires macOS 14+ and a Swift toolchain (Xcode).
@@ -35,6 +44,7 @@ Requires macOS 14+ and a Swift toolchain (Xcode).
 ```sh
 ./build.sh          # install to ~/Applications/KeepAwake.app
 ./build.sh --launch # install and launch
+./make-release.sh   # build a pkg under dist/
 ```
 
 ## Debug log

@@ -7,9 +7,8 @@ to toggle. No Dock icon.
 ## Icons
 
 - **Orange coffee cup** in the menu bar: keep-awake is **on**. Lid-close
-  sleep is disabled, and AC system/disk sleep is set to never.
-- **Moon with zzz**: keep-awake is **off**. Previous AC sleep values are
-  restored.
+  sleep is disabled, and system/disk sleep is set to never on AC and battery.
+- **Moon with zzz**: keep-awake is **off**. Previous sleep values are restored.
 
 The app icon (Finder, login items, Force Quit) is the coffee cup: caffeine,
 stay awake.
@@ -18,6 +17,9 @@ stay awake.
 
 - **Click** the menu-bar icon to toggle.
 - **Right-click** (or Control-click) for Open at Login, Open Debug Log, Quit.
+- **Open Keep Awake from Applications** (double-click, even if it is already
+  running) to show a control window. Use that when the menu-bar icon is
+  hidden behind the extra-items chevron.
 
 The first toggle that needs it asks for **Touch ID**. A successful unlock is
 cached for 5 minutes (Apple's maximum reuse window), so repeat taps in that
@@ -29,7 +31,7 @@ load.
 
 ## Install
 
-Download `KeepAwake-0.1.1.pkg` from
+Download `KeepAwake-0.1.2.pkg` from
 [Releases](https://github.com/RonItzhak/KeepAwake/releases) and double-click
 it. That installs to `/Applications`, allows admin users to run `pmset`
 without a password, and launches the menu-bar extra.

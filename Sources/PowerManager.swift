@@ -16,8 +16,9 @@ enum PowerManager {
     /// `-1` when `pmset` did not print the key (treated as unknown, not off).
     let disablesleep: Int
 
-    /// Indicates whether keep-awake is active: lid-close disabled, or system+disk
-    /// sleep both set to never.
+    /// Indicates whether keep-awake is active: lid-close sleep disabled, or the
+    /// AC profile is set to never sleep. Live battery idle values are ignored,
+    /// so the mode stays correct while unplugged.
     var isKeepAwakeOn: Bool {
       disablesleep == 1 || (sleep == 0 && disksleep == 0)
     }
@@ -124,18 +125,43 @@ enum PowerManager {
        disksleep            0
       """
     )
+    let unplugged = parseLive(
+      """
+      System-wide power settings:
+       SleepDisabled		1
+      Currently in use:
+       sleep                1
+       disksleep            10
+      """
+    )
+    let mergedUnplugged = merge(
+      custom: ACSettings(sleep: 0, disksleep: 0, disablesleep: -1),
+      live: unplugged
+    )
     precondition(withFlag == ACSettings(sleep: 5, disksleep: 10, disablesleep: 1))
     precondition(omitted == ACSettings(sleep: 1, disksleep: 10, disablesleep: -1))
     precondition(live == ACSettings(sleep: 0, disksleep: 0, disablesleep: -1))
     precondition(live.isKeepAwakeOn)
+    precondition(unplugged.disablesleep == 1)
+    precondition(unplugged.isKeepAwakeOn)
+    precondition(mergedUnplugged == ACSettings(sleep: 0, disksleep: 0, disablesleep: 1))
+    precondition(mergedUnplugged.isKeepAwakeOn)
     fputs("keepawake self-check ok\n", stdout)
   }
 
   private static func merge(custom: ACSettings, live: ACSettings) -> ACSettings {
-    ACSettings(
-      sleep: live.sleep,
-      disksleep: live.disksleep,
-      disablesleep: custom.disablesleep == -1 ? live.disablesleep : custom.disablesleep
+    let disablesleep: Int
+    if custom.disablesleep == 1 || live.disablesleep == 1 {
+      disablesleep = 1
+    } else if custom.disablesleep != -1 {
+      disablesleep = custom.disablesleep
+    } else {
+      disablesleep = live.disablesleep
+    }
+    return ACSettings(
+      sleep: custom.sleep,
+      disksleep: custom.disksleep,
+      disablesleep: disablesleep
     )
   }
 
@@ -164,7 +190,7 @@ enum PowerManager {
         sleep = value
       case "disksleep":
         disksleep = value
-      case "disablesleep":
+      case "disablesleep", "SleepDisabled":
         disablesleep = value
       default:
         break
@@ -174,25 +200,38 @@ enum PowerManager {
     return ACSettings(sleep: sleep, disksleep: disksleep, disablesleep: disablesleep)
   }
 
+  /// Parses the Battery Power block of `pmset -g custom`.
+  static func parseBattery(_ output: String) -> ACSettings {
+    parseBlocks(output, startWhenLineEquals: "Battery Power:")
+  }
+
   private static func turnOn() throws {
     try saveBackupIfNeeded()
     try runPmset([
       ["-a", "disablesleep", "1"],
-      ["-c", "sleep", "0"],
-      ["-c", "disksleep", "0"],
+      ["-a", "sleep", "0"],
+      ["-a", "disksleep", "0"],
     ])
   }
 
   private static func turnOff() throws {
-    let restored = loadBackup() ?? ACSettings(
+    let restored = loadBackup()
+    let ac = restored?.ac ?? ACSettings(
       sleep: defaultSleep,
+      disksleep: defaultDisksleep,
+      disablesleep: 0
+    )
+    let battery = restored?.battery ?? ACSettings(
+      sleep: 1,
       disksleep: defaultDisksleep,
       disablesleep: 0
     )
     try runPmset([
       ["-a", "disablesleep", "0"],
-      ["-c", "sleep", String(restored.sleep)],
-      ["-c", "disksleep", String(restored.disksleep)],
+      ["-c", "sleep", String(ac.sleep)],
+      ["-c", "disksleep", String(ac.disksleep)],
+      ["-b", "sleep", String(battery.sleep)],
+      ["-b", "disksleep", String(battery.disksleep)],
     ])
     try? FileManager.default.removeItem(at: backupURL)
   }
@@ -202,23 +241,29 @@ enum PowerManager {
       KeepAwakeLog.info("backup already exists at \(backupURL.path)")
       return
     }
-    let current = try currentSettings(logRaw: true)
+    let custom = try run(executable: pmset, arguments: ["-g", "custom"])
+    let ac = parseCustom(custom)
+    let battery = parseBattery(custom)
     let body = [
-      "sleep=\(current.sleep)",
-      "disksleep=\(current.disksleep)",
-      "disablesleep=\(max(current.disablesleep, 0))",
+      "sleep=\(ac.sleep)",
+      "disksleep=\(ac.disksleep)",
+      "disablesleep=\(max(ac.disablesleep, 0))",
+      "battery_sleep=\(battery.sleep)",
+      "battery_disksleep=\(battery.disksleep)",
       "",
     ].joined(separator: "\n")
     try body.write(to: backupURL, atomically: true, encoding: .utf8)
     KeepAwakeLog.info("wrote backup:\n\(body)")
   }
 
-  private static func loadBackup() -> ACSettings? {
+  private static func loadBackup() -> (ac: ACSettings, battery: ACSettings)? {
     guard let raw = try? String(contentsOf: backupURL, encoding: .utf8) else { return nil }
     KeepAwakeLog.info("loaded backup:\n\(raw)")
     var sleep = defaultSleep
     var disksleep = defaultDisksleep
     var disablesleep = 0
+    var batterySleep = 1
+    var batteryDisksleep = defaultDisksleep
     for line in raw.components(separatedBy: .newlines) {
       let parts = line.split(separator: "=", maxSplits: 1).map(String.init)
       guard parts.count == 2, let value = Int(parts[1]) else { continue }
@@ -229,11 +274,18 @@ enum PowerManager {
         disksleep = value
       case "disablesleep":
         disablesleep = value
+      case "battery_sleep":
+        batterySleep = value
+      case "battery_disksleep":
+        batteryDisksleep = value
       default:
         break
       }
     }
-    return ACSettings(sleep: sleep, disksleep: disksleep, disablesleep: disablesleep)
+    return (
+      ACSettings(sleep: sleep, disksleep: disksleep, disablesleep: disablesleep),
+      ACSettings(sleep: batterySleep, disksleep: batteryDisksleep, disablesleep: 0)
+    )
   }
 
   private static func runPmset(_ commands: [[String]]) throws {

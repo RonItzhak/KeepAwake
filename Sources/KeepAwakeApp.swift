@@ -1,6 +1,8 @@
 import AppKit
+import Carbon
 
-/// Process entry point. Hosts the menu-bar extra and never shows a Dock icon.
+/// Process entry point. Menu-bar extra by default; a control window appears
+/// when the app is opened from Applications.
 @main
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -22,9 +24,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     controller.start()
+    if !Self.launchedAsLoginItem {
+      controller.showControlWindow()
+    }
+  }
+
+  func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+    controller.showControlWindow()
+    return true
   }
 
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
     false
+  }
+
+  /// Indicates whether this launch came from a login item rather than Finder.
+  private static var launchedAsLoginItem: Bool {
+    guard let event = NSAppleEventManager.shared().currentAppleEvent else { return false }
+    let prop = event.attributeDescriptor(forKeyword: AEKeyword(keyAEPropData))
+    return prop?.enumCodeValue == OSType(keyAELaunchedAsLogInItem)
   }
 }

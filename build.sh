@@ -17,6 +17,7 @@ swiftc -parse-as-library -O \
   "$ROOT/Sources/PowerManager.swift" \
   "$ROOT/Sources/TouchAuth.swift" \
   -framework AppKit \
+  -framework Carbon \
   -framework LocalAuthentication \
   -framework ServiceManagement
 

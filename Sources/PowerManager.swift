@@ -61,8 +61,16 @@ enum PowerManager {
     return merge(custom: parseCustom(custom), live: parseLive(live))
   }
 
+  /// Indicates whether `/usr/bin/pmset` can already run via passwordless sudo.
+  /// Used to skip Touch ID on a machine that still needs the one-time admin setup.
+  static var hasPasswordlessAccess: Bool {
+    let result = spawn(executable: "/usr/bin/sudo", arguments: ["-n", pmset])
+    return !result.output.lowercased().contains("password is required")
+  }
+
   /// Turns lid-closed keep-awake on or off after Touch ID. Runs `pmset` via the
-  /// installed passwordless sudoers rule; does not use the AppleScript admin sheet.
+  /// installed passwordless sudoers rule. If that rule is missing, prompts once
+  /// with the system admin dialog to install it.
   static func setKeepAwake(_ on: Bool) throws {
     KeepAwakeLog.info("setKeepAwake(\(on))")
     if on {
@@ -233,11 +241,58 @@ enum PowerManager {
       KeepAwakeLog.info("pmset ran via passwordless sudo")
       return
     }
-    KeepAwakeLog.error("passwordless sudo failed; refusing AppleScript password dialog")
+    KeepAwakeLog.info("passwordless sudo missing; installing sudoers via admin dialog")
+    try installSudoersViaAdminDialog()
+    if tryRunPasswordless(commands) {
+      KeepAwakeLog.info("pmset ran via passwordless sudo after sudoers install")
+      return
+    }
     throw PowerError.pmsetWriteFailed(
-      "Could not change energy settings without a password prompt. " +
-        "The one-time admin setup may be missing."
+      "Could not change energy settings. Admin setup did not stick."
     )
+  }
+
+  private static func installSudoersViaAdminDialog() throws {
+    guard let helper = Bundle.main.url(forResource: "install-pmset-sudoers", withExtension: "sh")
+    else {
+      throw PowerError.pmsetWriteFailed("Keep Awake is missing its setup helper.")
+    }
+    let command = "/bin/bash \(shQuote(helper.path))"
+    let source =
+      "do shell script \(asQuote(command)) with prompt " +
+      asQuote("Keep Awake needs a one-time admin approval to change energy settings.") +
+      " with administrator privileges"
+    KeepAwakeLog.info("NSAppleScript sudoers install: \(source)")
+
+    var error: NSDictionary?
+    guard let script = NSAppleScript(source: source) else {
+      throw PowerError.pmsetWriteFailed("Could not build the privilege prompt.")
+    }
+    _ = script.executeAndReturnError(&error)
+    if let error {
+      KeepAwakeLog.error("NSAppleScript sudoers error: \(error)")
+      let code = (error[NSAppleScript.errorNumber] as? Int)
+        ?? (error["NSAppleScriptErrorNumber"] as? Int)
+        ?? 0
+      if code == -128 {
+        throw PowerError.userCanceled
+      }
+      let message = (error[NSAppleScript.errorMessage] as? String)
+        ?? (error["NSAppleScriptErrorMessage"] as? String)
+        ?? "Could not complete admin setup."
+      throw PowerError.pmsetWriteFailed(message)
+    }
+  }
+
+  private static func shQuote(_ value: String) -> String {
+    "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
+  }
+
+  private static func asQuote(_ value: String) -> String {
+    let escaped = value
+      .replacingOccurrences(of: "\\", with: "\\\\")
+      .replacingOccurrences(of: "\"", with: "\\\"")
+    return "\"\(escaped)\""
   }
 
   private static func tryRunPasswordless(_ commands: [[String]]) -> Bool {

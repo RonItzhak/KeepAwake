@@ -21,18 +21,18 @@ stay awake.
 
 The first toggle that needs it asks for **Touch ID**. A successful unlock is
 cached for 5 minutes (Apple's maximum reuse window), so repeat taps in that
-window do not prompt. Changing `pmset` itself uses a one-time sudoers rule
-for `/usr/bin/pmset` only, so you should not see the old admin-password
-dialog.
+window do not prompt. The installer (or a one-time admin prompt) installs a
+sudoers rule so `/usr/bin/pmset` does not need a password after that.
 
 Keep the Mac plugged in and give it airflow when the lid is closed under
 load.
 
 ## Install
 
-Download `KeepAwake-0.1.pkg` from
+Download `KeepAwake-0.1.1.pkg` from
 [Releases](https://github.com/RonItzhak/KeepAwake/releases) and double-click
-it. That installs to `/Applications` and launches the menu-bar extra.
+it. That installs to `/Applications`, allows admin users to run `pmset`
+without a password, and launches the menu-bar extra.
 
 The package is ad-hoc signed. If Gatekeeper blocks it: right-click the pkg,
 choose Open, then Open anyway.

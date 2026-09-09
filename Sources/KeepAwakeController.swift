@@ -88,7 +88,11 @@ final class KeepAwakeController: NSObject {
           ? "Turn Keep Awake off and restore normal sleep."
           : "Turn Keep Awake on so the Mac stays awake with the lid closed."
         KeepAwakeLog.info("toggle clicked; currentlyOn=\(currentlyOn)")
-        try await TouchAuth.confirm(reason: reason)
+        if PowerManager.hasPasswordlessAccess {
+          try await TouchAuth.confirm(reason: reason)
+        } else {
+          KeepAwakeLog.info("skipping Touch ID; one-time admin setup is required")
+        }
         try PowerManager.setKeepAwake(!currentlyOn)
         refresh()
       } catch PowerManager.PowerError.userCanceled {

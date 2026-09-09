@@ -1,4 +1,14 @@
 #!/bin/bash
-# Launches Keep Awake after the pkg lands in /Applications.
+# Installer already ran as root. Grant admin users passwordless pmset, then launch.
+set -euo pipefail
+
+HELPER="/Applications/KeepAwake.app/Contents/Resources/install-pmset-sudoers.sh"
+if [ -x "$HELPER" ]; then
+  "$HELPER"
+else
+  echo "missing $HELPER" >&2
+  exit 1
+fi
+
 /usr/bin/open -a "/Applications/KeepAwake.app"
 exit 0

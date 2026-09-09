@@ -28,6 +28,10 @@ cp "$ROOT/Info.plist" "$APP/Contents/Info.plist"
 if [ -f "$ROOT/Resources/AppIcon.icns" ]; then
   cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 fi
+if [ -f "$ROOT/Resources/install-pmset-sudoers.sh" ]; then
+  cp "$ROOT/Resources/install-pmset-sudoers.sh" "$APP/Contents/Resources/install-pmset-sudoers.sh"
+  chmod 0755 "$APP/Contents/Resources/install-pmset-sudoers.sh"
+fi
 
 if command -v codesign >/dev/null; then
   codesign --force --sign - "$APP" >/dev/null

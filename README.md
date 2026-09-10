@@ -66,3 +66,7 @@ The same steps as `./build.sh`, `./build.sh --launch`, and `./make-release.sh`.
 `~/Library/Logs/KeepAwake.log`
 
 Or right-click the menu-bar icon and choose **Open Debug Log**.
+
+## License
+
+[MIT](LICENSE)

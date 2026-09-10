@@ -48,9 +48,19 @@ the new build. Keep-awake on/off is left as it was.
 Use **Check for Updates…** in the menu or control window to compare with
 GitHub Releases.
 
-## Build
+## Requirements
 
-Requires macOS 14+ and a Swift toolchain (Xcode).
+To **run** the app: macOS 14 or later on Apple Silicon, plus Touch ID or
+Apple Watch to toggle (cached for 5 minutes after a success). An admin
+account is needed once, so the installer can add a passwordless `pmset`
+sudoers rule.
+
+To **build** it: the same Mac, plus Xcode or the Command Line Tools
+(`swiftc`, `make`, `codesign`, `pkgbuild`). There is no Xcode project and
+no Swift packages; `./build.sh` compiles the sources directly. The
+compiler target is `arm64-apple-macos14`, so Intel Macs are out.
+
+## Build
 
 ```sh
 make            # install to ~/Applications/KeepAwake.app
